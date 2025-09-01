@@ -59,8 +59,9 @@ def clean_array(
         target_classes = list(class_values)
 
     # Kernel for morphological opening
-    ksz = smooth_edge_size * 2 + 1
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksz, ksz))
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_ELLIPSE, (smooth_edge_size, smooth_edge_size)
+    )
 
     # Work in float with NaN as nodata
     smoothed_labels = np.full(array.shape, np.nan, dtype=np.float32)

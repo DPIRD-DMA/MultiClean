@@ -36,6 +36,7 @@ dev = [
     "rasterio>=1.0",
     "ruff>=0.1",
     "pytest",
+    "rasterio",
 
 ]
 [tool.setuptools.dynamic]
