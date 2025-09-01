@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multiclean"
+authors = [{name = "Nick Wright", email = "nicholas.wright@dpird.wa.gov.au"}]
+dynamic = ["version"]
+description = "Python library for morphological cleaning of multiclass 2D numpy arrays (edge smoothing and island removal)"
+license = "MIT"
+readme = {file = "README.md", content-type = "text/markdown"}
+keywords = [
+    "morphological-operations",
+    "multiclass", 
+    "classification-arrays",
+    "image-processing",
+    "edge-cleaning",
+    "island-removal",
+    "segmentation",
+    "post-processing",
+    "numpy",
+    "opencv",
+    "remote-sensing",
+    "computer-vision",
+    "noise-reduction"
+]
+requires-python = ">=3.9"
+dependencies = [
+    "opencv-python>=4.0",
+    "scipy>=1.0",
+]
+[dependency-groups]
+dev = [
+    "jupyter>=1.0",
+    "matplotlib>=3.0",
+    "rasterio>=1.0",
+    "ruff>=0.1",
+    "pytest",
+
+]
+[tool.setuptools.dynamic]
+version = {attr = "multiclean.__version__.__version__"}
+
+
+[project.urls]
+Homepage = "https://github.com/DPIRD-DMA/MultiClean"
+
+
+[tool.setuptools]
+packages = ["multiclean"]
+
+[tool.ruff.lint]
+select = ["E", "F", "B"]
