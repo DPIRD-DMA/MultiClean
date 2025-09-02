@@ -1,7 +1,8 @@
 # MultiClean
-
+[![image](https://img.shields.io/pypi/v/multiclean.svg)](https://pypi.python.org/pypi/multiclean)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Tutorials](https://img.shields.io/badge/Tutorials-Learn-brightgreen)](https://github.com/DPIRD-DMA/MultiClean/tree/main/notebooks)
 
 **MultiClean** is a Python library for morphological cleaning of multiclass 2D numpy arrays (segmentation masks and classification rasters). It provides efficient tools for edge smoothing and small-island removal across multiple classes, then fills gaps using the nearest valid class.
 
@@ -9,7 +10,7 @@
 
 Below: Land Use before/after cleaning (smoothed edges, small-island removal, nearest-class gap fill).
 
-<img src="assets/land_use_before_after.png" alt="Land Use before/after" width="900"/>
+<img src="https://raw.githubusercontent.com/DPIRD-DMA/MultiClean/main/assets/land_use_before_after.png" alt="Land Use before/after" width="900"/>
 
 ## Key Features
 
