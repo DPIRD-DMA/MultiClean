@@ -5,6 +5,12 @@
 
 **MultiClean** is a Python library for morphological cleaning of multiclass 2D numpy arrays (segmentation masks and classification rasters). It provides efficient tools for edge smoothing and small-island removal across multiple classes, then fills gaps using the nearest valid class.
 
+## Visual Example
+
+Below: Land Use before/after cleaning (smoothed edges, small-island removal, nearest-class gap fill).
+
+<img src="assets/land_use_before_after.png" alt="Land Use before/after" width="900"/>
+
 ## Key Features
 
 - **Multi-class processing**: Clean all classes in one pass
@@ -90,7 +96,7 @@ out = clean_array(
 - `connectivity`: Pixel connectivity for components, `4` or `8`.
 - `max_workers`: Parallelism for per-class operations (None lets the executor choose).
 
-Returns a numpy array matching the input shape. Integer inputs return integer outputs. Float arrays with `NaN` are supported (treated as nodata and filled), but integer class arrays are recommended for best results.
+Returns a numpy array matching the input shape. Integer inputs return integer outputs. Float arrays with `NaN` are supported (treated as nodata and retained as `NaN`).
 
 
 ## Performance
@@ -143,8 +149,10 @@ cleaned = clean_array(
 ## Examples
 
 See the notebooks folder for end-to-end examples:
-- `notebooks/Land use clasification.ipynb`: side-by-side cleaning on two rasters
-- `notebooks/Large example.ipynb`: large synthetic land-use example
+- `notebooks/Land use example.ipynb`: side-by-side cleaning on two rasters (A and B)
+- `notebooks/Cloud example.ipynb`: cloud/shadow classification cleaning
+- `notebooks/Land use B README graphic.ipynb`: generates the image below
+
 
 ## Contributing
 

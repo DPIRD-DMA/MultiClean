@@ -1,9 +1,7 @@
 import numpy as np
 import pytest
 
-
-# Import directly from module to avoid potential package __init__ import issues
-from multiclean.multiclean import clean_array
+from multiclean import clean_array
 
 
 def test_identity_when_no_smoothing_no_island_removal():
@@ -48,13 +46,13 @@ def test_removes_single_pixel_island_and_fills_with_nearest():
     assert np.count_nonzero(out) == 0
 
 
-def test_fills_nan_holes_with_nearest_valid_class():
+def test_retains_nan_holes_in_float_arrays():
     # Arrange: float array with two classes and a NaN hole
     arr = np.zeros((5, 5), dtype=np.float32)
     arr[:, 3:] = 1.0  # right side class 1
     arr[2, 2] = np.nan  # a NaN hole in the middle
 
-    # Act: light processing; should fill NaN by nearest (either 0.0 or 1.0)
+    # Act: light processing; NaN should be retained (nodata)
     out = clean_array(
         arr,
         class_values=None,
@@ -64,12 +62,141 @@ def test_fills_nan_holes_with_nearest_valid_class():
         max_workers=1,
     )
 
-    # Assert: no NaNs and values limited to known classes
-    assert not np.isnan(out).any()
-    assert set(np.unique(out)).issubset({0.0, 1.0})
+    # Assert: single NaN is retained; other values are valid classes
+    assert np.isnan(out[2, 2])
+    non_nan = out[~np.isnan(out)]
+    assert set(np.unique(non_nan)).issubset({0.0, 1.0})
 
 
 def test_invalid_connectivity_raises():
     arr = np.zeros((3, 3), dtype=np.int32)
     with pytest.raises(ValueError):
         clean_array(arr, connectivity=6)
+
+
+def test_smoothing_removes_single_pixel_when_enabled():
+    # Single pixel of class 1 in background 0
+    arr = np.zeros((5, 5), dtype=np.int32)
+    arr[2, 2] = 1
+
+    # With smoothing on and island removal effectively off (threshold < 1)
+    out = clean_array(
+        arr,
+        class_values=None,
+        smooth_edge_size=2,
+        min_island_size=1,  # remove components with area < 1 => none
+        connectivity=4,
+        max_workers=1,
+    )
+
+    # The single 1 is smoothed away and filled from nearest background (0)
+    assert out.dtype == arr.dtype
+    assert out[2, 2] == 0
+
+
+def test_island_threshold_strictness_preserves_area_equal_to_threshold():
+    # 2-pixel island (area = 2) should be preserved when min_island_size = 2
+    arr = np.zeros((5, 5), dtype=np.int32)
+    arr[2, 2] = 1
+    arr[2, 3] = 1
+
+    out = clean_array(
+        arr,
+        class_values=None,
+        smooth_edge_size=0,
+        min_island_size=2,  # remove strictly < 2 => keep area 2
+        connectivity=4,
+        max_workers=1,
+    )
+
+    assert out[2, 2] == 1 and out[2, 3] == 1
+
+    # Increasing threshold to 3 should remove the area-2 island
+    out2 = clean_array(
+        arr,
+        class_values=None,
+        smooth_edge_size=0,
+        min_island_size=3,
+        connectivity=4,
+        max_workers=1,
+    )
+    assert out2[2, 2] == 0 and out2[2, 3] == 0
+
+
+def test_connectivity_affects_island_merging():
+    # Two diagonally touching pixels (1,1) and (2,2)
+    arr = np.zeros((4, 4), dtype=np.int32)
+    arr[1, 1] = 1
+    arr[2, 2] = 1
+
+    # With 4-connectivity and threshold 2, each area=1 island is removed
+    out4 = clean_array(
+        arr,
+        smooth_edge_size=0,
+        min_island_size=2,
+        connectivity=4,
+        max_workers=1,
+    )
+    assert out4.sum() == 0
+
+    # With 8-connectivity, the two pixels form a single area=2 component => kept
+    out8 = clean_array(
+        arr,
+        smooth_edge_size=0,
+        min_island_size=2,
+        connectivity=8,
+        max_workers=1,
+    )
+    assert out8[1, 1] == 1 and out8[2, 2] == 1
+
+
+def test_class_values_subset_limits_processing():
+    # Build islands for classes 1 and 2
+    arr = np.zeros((6, 6), dtype=np.int32)
+    arr[2, 2] = 1  # tiny island of class 1
+    arr[3, 3] = 2  # tiny island of class 2
+
+    # Only process class 1; class 2 should be preserved
+    out = clean_array(
+        arr,
+        class_values=[1],
+        smooth_edge_size=0,
+        min_island_size=2,  # remove single-pixel islands
+        connectivity=4,
+        max_workers=2,
+    )
+
+    # Class 1 pixel removed, class 2 pixel kept
+    assert out[2, 2] == 0
+    assert out[3, 3] == 2
+
+
+def test_empty_class_values_means_identity():
+    # If class_values is an empty list, treat everything as background (no-op)
+    rng = np.random.default_rng(1)
+    arr = rng.integers(0, 3, size=(8, 8), dtype=np.int32)
+    out = clean_array(
+        arr,
+        class_values=[],
+        smooth_edge_size=2,
+        min_island_size=100,
+        connectivity=4,
+        max_workers=2,
+    )
+    assert np.array_equal(out, arr)
+
+
+def test_invalid_parameters_raise():
+    arr = np.zeros((3, 3), dtype=np.int32)
+    with pytest.raises(ValueError):
+        clean_array(arr, smooth_edge_size=-1)
+    with pytest.raises(ValueError):
+        clean_array(arr, min_island_size=-5)
+
+
+def test_float_dtype_and_nan_retention_preserved():
+    arr = np.zeros((3, 3), dtype=np.float32)
+    arr[1, 1] = np.nan
+    out = clean_array(arr, smooth_edge_size=0, min_island_size=1)
+    assert out.dtype == np.float32
+    assert np.isnan(out[1, 1])
