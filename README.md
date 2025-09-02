@@ -52,6 +52,13 @@ cleaned = clean_array(
     max_workers=4,
 )
 ```
+## Examples
+
+See the notebooks folder for end-to-end examples:
+- [Land Use Example Notebook](https://github.com/DPIRD-DMA/MultiClean/blob/main/notebooks/Land%20use%20example.ipynb): land use classification cleaning
+- [Cloud Example Notebook](https://github.com/DPIRD-DMA/MultiClean/blob/main/notebooks/Cloud%20example.ipynb): cloud/shadow classification cleaning
+
+
 
 ## Use Cases
 
@@ -145,13 +152,6 @@ cleaned = clean_array(
     connectivity=4,
 )
 ```
-
-## Examples
-
-See the notebooks folder for end-to-end examples:
-- [Land Use Example Notebook](https://github.com/DPIRD-DMA/MultiClean/blob/main/notebooks/Land%20use%20example.ipynb): land use classification cleaning
-- [Cloud Example Notebook](https://github.com/DPIRD-DMA/MultiClean/blob/main/notebooks/Cloud%20example.ipynb): cloud/shadow classification cleaning
-
 
 ## Contributing
 

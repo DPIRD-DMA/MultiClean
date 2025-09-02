@@ -18,7 +18,7 @@ def clean_array(
     max_workers: Optional[int] = None,
 ) -> np.ndarray:
     """
-    Clean classification arrays through integrated edge smoothing and island removal.
+    Clean classification arrays through edge smoothing and island removal.
 
     Applies morphological opening to smooth class boundaries, removes small isolated
     regions below size threshold, and fills gaps using nearest-neighbour interpolation.
