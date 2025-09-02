@@ -58,7 +58,13 @@ See the notebooks folder for end-to-end examples:
 - [Land Use Example Notebook](https://github.com/DPIRD-DMA/MultiClean/blob/main/notebooks/Land%20use%20example.ipynb): land use classification cleaning
 - [Cloud Example Notebook](https://github.com/DPIRD-DMA/MultiClean/blob/main/notebooks/Cloud%20example.ipynb): cloud/shadow classification cleaning
 
+## Try in Colab
 
+[![Colab_Button]][Link]
+
+[Link]: https://colab.research.google.com/github/DPIRD-DMA/MultiClean/blob/main/notebooks/NLUM%20Colab%20example.ipynb 'Try MultiClean In Colab'
+
+[Colab_Button]: https://img.shields.io/badge/Try%20in%20Colab-grey?style=for-the-badge&logo=google-colab
 
 ## Use Cases
 
