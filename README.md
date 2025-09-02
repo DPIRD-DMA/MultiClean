@@ -63,7 +63,7 @@ See the notebooks folder for end-to-end examples:
 
 [![Colab_Button]][Link]
 
-[Link]: https://colab.research.google.com/github/DPIRD-DMA/MultiClean/blob/main/notebooks/NLUM%20Colab%20example.ipynb 'Try MultiClean In Colab'
+[Link]: https://colab.research.google.com/github/DPIRD-DMA/MultiClean/blob/main/notebooks/Land%20use%20example%20(Colab).ipynb 'Try MultiClean In Colab'
 
 [Colab_Button]: https://img.shields.io/badge/Try%20in%20Colab-grey?style=for-the-badge&logo=google-colab
 
