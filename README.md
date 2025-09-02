@@ -83,7 +83,7 @@ out = clean_array(
 )
 ```
 
-- `array`: 2D numpy array of class labels (int or float). For float arrays, `NaN` is treated as nodata and will be filled.
+- `array`: 2D numpy array of class labels (int or float). For float arrays, `NaN` is treated as nodata and will remain `NaN`.
 - `class_values`: Classes to consider. If `None`, inferred from `array` (ignores `NaN` for floats). An int restricts cleaning to a single class.
 - `smooth_edge_size`: Kernel size (pixels) for morphological opening. Use `0` to disable.
 - `min_island_size`: Remove components with area strictly `< min_island_size`. Use `1` to keep single pixels.

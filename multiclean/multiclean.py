@@ -1,7 +1,6 @@
 import numpy as np
 from typing import List, Union
 from typing import Optional
-import warnings
 from .utils import (
     fill_invalids,
     find_small_islands,
@@ -54,15 +53,12 @@ def clean_array(
         raise ValueError("min_island_size must be non-negative")
     if array.ndim != 2:
         raise ValueError("Input array must be 2D")
-    if not np.issubdtype(array.dtype, np.integer):
-        warnings.warn(
-            "Input array is not of integer type. "
-            "Results may be unexpected if array contains non-integer values.",
-            UserWarning,
-            stacklevel=2,
-        )
 
     all_class_values = np.unique(array).tolist()
+    # Remove NaN from class values if present
+    if np.issubdtype(array.dtype, np.floating):
+        all_class_values = [v for v in all_class_values if not np.isnan(v)]
+
     if class_values is None:
         target_class_values = all_class_values
     else:
@@ -72,6 +68,13 @@ def clean_array(
             target_class_values = list(class_values)
 
     background_class_values = list(set(all_class_values) - set(target_class_values))
+
+    if np.issubdtype(array.dtype, np.floating):
+        nan_mask = np.isnan(array)
+        if nan_mask.any():
+            background_class_values.append(np.nan)
+    else:
+        nan_mask = None
 
     smoothed_labels = smooth_edges(
         array=array,
@@ -95,6 +98,9 @@ def clean_array(
     )
 
     if not invalid_mask.any():
+        # Apply original NaN mask if present
+        if nan_mask is not None and nan_mask.any():
+            smoothed_labels[nan_mask] = np.nan
         if np.issubdtype(array.dtype, np.integer):
             return smoothed_labels.astype(array.dtype, copy=False)
         return smoothed_labels
@@ -105,6 +111,11 @@ def clean_array(
         all_class_values=all_class_values,
     )
 
+    # Convert back to original dtype if integer
     if np.issubdtype(array.dtype, np.integer):
         return output.astype(array.dtype, copy=False)
+
+    # Apply original NaN mask if present
+    if nan_mask is not None and nan_mask.any():
+        output[nan_mask] = np.nan
     return output

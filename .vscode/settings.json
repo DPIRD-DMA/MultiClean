@@ -1,8 +1,11 @@
 {
     "cSpell.words": [
         "bibtex",
+        "cmap",
         "dtype",
+        "figsize",
         "Geospatial",
+        "imshow",
         "inpaint",
         "isin",
         "issubdtype",
@@ -11,11 +14,15 @@
         "ndarray",
         "ndimage",
         "neighbour",
+        "nodata",
         "numpy",
         "ogrid",
         "optimised",
         "randint",
         "setuptools",
-        "Vectorised"
+        "Vectorised",
+        "viridis",
+        "xticks",
+        "yticks"
     ]
 }
