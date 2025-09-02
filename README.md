@@ -149,9 +149,8 @@ cleaned = clean_array(
 ## Examples
 
 See the notebooks folder for end-to-end examples:
-- `notebooks/Land use example.ipynb`: side-by-side cleaning on two rasters (A and B)
-- `notebooks/Cloud example.ipynb`: cloud/shadow classification cleaning
-- `notebooks/Land use B README graphic.ipynb`: generates the image below
+- [Land Use Example Notebook](https://github.com/DPIRD-DMA/MultiClean/blob/main/notebooks/Land%20use%20example.ipynb): land use classification cleaning
+- [Cloud Example Notebook](https://github.com/DPIRD-DMA/MultiClean/blob/main/notebooks/Cloud%20example.ipynb): cloud/shadow classification cleaning
 
 
 ## Contributing

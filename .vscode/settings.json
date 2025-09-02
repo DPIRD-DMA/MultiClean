@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
+        "argmax",
         "bibtex",
         "cmap",
         "dtype",
@@ -7,8 +8,11 @@
         "Geospatial",
         "imshow",
         "inpaint",
+        "ipynb",
         "isin",
         "issubdtype",
+        "landcover",
+        "logits",
         "multiclass",
         "multiclean",
         "ndarray",
@@ -19,9 +23,12 @@
         "ogrid",
         "optimised",
         "randint",
+        "rasterio",
         "setuptools",
         "Vectorised",
         "viridis",
+        "vmax",
+        "vmin",
         "xticks",
         "yticks"
     ]
