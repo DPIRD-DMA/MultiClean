@@ -12,14 +12,6 @@ Below: Land Use before/after cleaning (smoothed edges, small-island removal, nea
 
 <img src="https://raw.githubusercontent.com/DPIRD-DMA/MultiClean/main/assets/land_use_before_after.png" alt="Land Use before/after" width="900"/>
 
-## Key Features
-
-- **Multi-class processing**: Clean all classes in one pass
-- **Edge smoothing**: Morphological opening to reduce jagged boundaries
-- **Island removal**: Remove small connected components per class
-- **Gap filling**: Fill invalids via nearest valid class (distance transform)
-- **Fast**: NumPy + OpenCV + SciPy with parallelism
-
 ## Installation
 
 ```bash
@@ -29,7 +21,6 @@ or
 ```bash
 uv add multiclean
 ```
-
 
 ## Quick Start
 
@@ -53,19 +44,6 @@ cleaned = clean_array(
     max_workers=4,
 )
 ```
-## Examples
-
-See the notebooks folder for end-to-end examples:
-- [Land Use Example Notebook](https://github.com/DPIRD-DMA/MultiClean/blob/main/notebooks/Land%20use%20example.ipynb): land use classification cleaning
-- [Cloud Example Notebook](https://github.com/DPIRD-DMA/MultiClean/blob/main/notebooks/Cloud%20example.ipynb): cloud/shadow classification cleaning
-
-## Try in Colab
-
-[![Colab_Button]][Link]
-
-[Link]: https://colab.research.google.com/github/DPIRD-DMA/MultiClean/blob/main/notebooks/Land%20use%20example%20(Colab).ipynb 'Try MultiClean In Colab'
-
-[Colab_Button]: https://img.shields.io/badge/Try%20in%20Colab-grey?style=for-the-badge&logo=google-colab
 
 ## Use Cases
 
@@ -75,6 +53,16 @@ MultiClean is designed for cleaning segmentation outputs from:
 - **Computer vision**: Semantic segmentation post-processing  
 - **Geospatial analysis**: Raster classification cleaning
 - **Machine learning**: Neural network output refinement
+
+## Key Features
+
+- **Multi-class processing**: Clean all classes in one pass
+- **Edge smoothing**: Morphological opening to reduce jagged boundaries
+- **Island removal**: Remove small connected components per class
+- **Gap filling**: Fill invalids via nearest valid class (distance transform)
+- **Fast**: NumPy + OpenCV + SciPy with parallelism
+
+
 
 ## How It Works
 
@@ -86,7 +74,7 @@ MultiClean uses morphological operations to clean classification arrays:
 
 Classes are processed together and the result maintains a valid label at every pixel.
 
-## API
+## API Reference
 
 ### `clean_array`
 
@@ -112,18 +100,9 @@ out = clean_array(
 
 Returns a numpy array matching the input shape. Integer inputs return integer outputs. Float arrays with `NaN` are supported (treated as nodata and retained as `NaN`).
 
-
-## Performance
-
-MultiClean is optimised for large arrays:
-
-- **Vectorised operations** using NumPy, OpenCV, and SciPy
-- **Parallel processing** for island detection across classes
-- **Fast distance transforms** for gap filling
-
 ## Examples
 
-### Cleaning Satellite Land Cover Data
+### Cleaning Land Cover Data
 
 ```python
 from multiclean import clean_array
@@ -159,6 +138,20 @@ cleaned = clean_array(
     connectivity=4,
 )
 ```
+## Examples
+
+See the notebooks folder for end-to-end examples:
+- [Land Use Example Notebook](https://github.com/DPIRD-DMA/MultiClean/blob/main/notebooks/Land%20use%20example.ipynb): land use classification cleaning
+- [Cloud Example Notebook](https://github.com/DPIRD-DMA/MultiClean/blob/main/notebooks/Cloud%20example.ipynb): cloud/shadow classification cleaning
+
+## Try in Colab
+
+[![Colab_Button]][Link]
+
+[Link]: https://colab.research.google.com/github/DPIRD-DMA/MultiClean/blob/main/notebooks/Land%20use%20example%20(Colab).ipynb 'Try MultiClean In Colab'
+
+[Colab_Button]: https://img.shields.io/badge/Try%20in%20Colab-grey?style=for-the-badge&logo=google-colab
+
 
 ## Contributing
 
