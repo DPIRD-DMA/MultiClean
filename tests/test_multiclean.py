@@ -3,7 +3,7 @@ import pytest
 
 
 # Import directly from module to avoid potential package __init__ import issues
-from multiclean.logic import clean_array
+from multiclean.multiclean import clean_array
 
 
 def test_identity_when_no_smoothing_no_island_removal():
@@ -16,7 +16,7 @@ def test_identity_when_no_smoothing_no_island_removal():
         arr,
         class_values=None,
         smooth_edge_size=0,  # 1x1 structuring element => identity
-        min_island_size=1,   # remove components with area < 1 (none)
+        min_island_size=1,  # remove components with area < 1 (none)
         connectivity=4,
         max_workers=1,
     )
@@ -36,7 +36,7 @@ def test_removes_single_pixel_island_and_fills_with_nearest():
         arr,
         class_values=None,
         smooth_edge_size=0,  # avoid edge effects; focus on island removal
-        min_island_size=2,   # single pixel island should be removed
+        min_island_size=2,  # single pixel island should be removed
         connectivity=4,
         max_workers=1,
     )
@@ -73,4 +73,3 @@ def test_invalid_connectivity_raises():
     arr = np.zeros((3, 3), dtype=np.int32)
     with pytest.raises(ValueError):
         clean_array(arr, connectivity=6)
-

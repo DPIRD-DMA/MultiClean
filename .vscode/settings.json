@@ -1,6 +1,8 @@
 {
     "cSpell.words": [
         "bibtex",
+        "dtype",
+        "Geospatial",
         "inpaint",
         "isin",
         "issubdtype",
@@ -8,8 +10,11 @@
         "multiclean",
         "ndarray",
         "ndimage",
+        "neighbour",
         "numpy",
+        "ogrid",
         "optimised",
+        "randint",
         "setuptools",
         "Vectorised"
     ]
