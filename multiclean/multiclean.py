@@ -1,10 +1,11 @@
+from typing import List, Optional, Union
+
 import numpy as np
-from typing import List, Union
-from typing import Optional
+
 from .utils import (
+    build_invalid_mask,
     fill_invalids,
     find_small_islands,
-    build_invalid_mask,
     smooth_edges,
 )
 
@@ -16,6 +17,7 @@ def clean_array(
     min_island_size: int = 100,
     connectivity: int = 4,
     max_workers: Optional[int] = None,
+    fill_nan: bool = False,
 ) -> np.ndarray:
     """
     Clean classification arrays through edge smoothing and island removal.
@@ -39,6 +41,8 @@ def clean_array(
         Pixel connectivity for island detection (4 or 8)
     max_workers : Optional[int]
         Number of worker threads for parallel processing
+    fill_nan : bool
+        Whether to fill NaN values from the input array
 
     Returns:
     --------
@@ -69,7 +73,7 @@ def clean_array(
 
     background_class_values = list(set(all_class_values) - set(target_class_values))
 
-    if np.issubdtype(array.dtype, np.floating):
+    if np.issubdtype(array.dtype, np.floating) and not fill_nan:
         nan_mask = np.isnan(array)
         if nan_mask.any():
             background_class_values.append(np.nan)

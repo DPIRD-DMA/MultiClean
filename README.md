@@ -42,6 +42,7 @@ cleaned = clean_array(
     min_island_size=100,    # remove components with area < 100
     connectivity=8,         # 4 or 8
     max_workers=4,
+    fill_nan=False          # enable/disable the filling of nan values in input array
 )
 ```
 
@@ -61,7 +62,6 @@ MultiClean is designed for cleaning segmentation outputs from:
 - **Island removal**: Remove small connected components per class
 - **Gap filling**: Fill invalids via nearest valid class (distance transform)
 - **Fast**: NumPy + OpenCV + SciPy with parallelism
-
 
 
 ## How It Works
@@ -88,17 +88,19 @@ out = clean_array(
     min_island_size: int = 100,
     connectivity: int = 4,
     max_workers: int | None = None,
+    fill_nan: bool = False
 )
 ```
 
-- `array`: 2D numpy array of class labels (int or float). For float arrays, `NaN` is treated as nodata and will remain `NaN`.
+- `array`: 2D numpy array of class labels (int or float). For float arrays, `NaN` is treated as nodata and will remain `NaN` unless `fill_nan` is set to `True`.
 - `class_values`: Classes to consider. If `None`, inferred from `array` (ignores `NaN` for floats). An int restricts cleaning to a single class.
 - `smooth_edge_size`: Kernel size (pixels) for morphological opening. Use `0` to disable.
 - `min_island_size`: Remove components with area strictly `< min_island_size`. Use `1` to keep single pixels.
 - `connectivity`: Pixel connectivity for components, `4` or `8`.
 - `max_workers`: Parallelism for per-class operations (None lets the executor choose).
+- `fill_nan`: If True will fill NAN values from input array with nearest valid value.
 
-Returns a numpy array matching the input shape. Integer inputs return integer outputs. Float arrays with `NaN` are supported (treated as nodata and retained as `NaN`).
+Returns a numpy array matching the input shape. Integer inputs return integer outputs. Float arrays with `NaN` are supported and can be filled or remain as NAN.
 
 ## Examples
 
@@ -119,6 +121,7 @@ cleaned = clean_array(
     smooth_edge_size=1,
     min_island_size=25,
     connectivity=8,
+    fill_nan=False
 )
 ```
 
@@ -138,7 +141,7 @@ cleaned = clean_array(
     connectivity=4,
 )
 ```
-## Examples
+## Notebooks
 
 See the notebooks folder for end-to-end examples:
 - [Land Use Example Notebook](https://github.com/DPIRD-DMA/MultiClean/blob/main/notebooks/Land%20use%20example.ipynb): land use classification cleaning

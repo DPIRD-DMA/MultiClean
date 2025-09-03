@@ -200,3 +200,65 @@ def test_float_dtype_and_nan_retention_preserved():
     out = clean_array(arr, smooth_edge_size=0, min_island_size=1)
     assert out.dtype == np.float32
     assert np.isnan(out[1, 1])
+
+
+def test_fill_nan_true_fills_single_nan_with_nearest():
+    # Arrange: two classes with a NaN hole; nearest valid around the hole is 0
+    arr = np.zeros((5, 5), dtype=np.float32)
+    arr[:, 3:] = 1.0  # right side class 1
+    arr[2, 2] = np.nan
+
+    # Act: enable NaN filling with no smoothing/island removal side effects
+    out = clean_array(
+        arr,
+        smooth_edge_size=0,
+        min_island_size=1,  # remove components with area < 1 (none)
+        connectivity=4,
+        max_workers=1,
+        fill_nan=True,
+    )
+
+    # Assert: NaN is replaced by nearest valid (0 in this layout)
+    assert out.dtype == np.float32
+    assert not np.isnan(out[2, 2])
+    assert out[2, 2] == 0.0
+
+
+def test_fill_nan_respects_island_removal_order():
+    # Arrange: NaN adjacent to a single-pixel island (class 1) in background 0
+    arr = np.zeros((5, 5), dtype=np.float32)
+    arr[2, 3] = 1.0  # single-pixel island to be removed
+    arr[2, 2] = np.nan  # NaN hole next to the island
+
+    # Act: remove islands of area < 2 and fill NaNs afterwards
+    out = clean_array(
+        arr,
+        smooth_edge_size=0,
+        min_island_size=2,  # remove the single-pixel island
+        connectivity=4,
+        max_workers=1,
+        fill_nan=True,
+    )
+
+    # Assert: the NaN fills from background (0), not the removed island (1)
+    assert out[2, 2] == 0.0
+    # The former island pixel is also filled from nearest valid (0)
+    assert out[2, 3] == 0.0
+
+
+def test_fill_nan_true_with_all_nan_returns_all_nan():
+    # Arrange: all-NaN array has no valid source to fill from
+    arr = np.full((4, 4), np.nan, dtype=np.float32)
+
+    # Act: even with fill_nan=True, nothing to fill from
+    out = clean_array(
+        arr,
+        smooth_edge_size=0,
+        min_island_size=1,
+        connectivity=4,
+        max_workers=1,
+        fill_nan=True,
+    )
+
+    # Assert: still all NaN due to absence of any valid pixel
+    assert np.isnan(out).all()
