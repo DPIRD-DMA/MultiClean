@@ -1,47 +1,157 @@
-import numpy as np
-import cv2
-from typing import List
-from scipy.ndimage import distance_transform_edt
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, Tuple
-from typing import Optional
+from typing import List, Optional, Tuple
+
+import cv2
+import numpy as np
+from scipy.ndimage import distance_transform_edt
 
 
-def small_islands_mask_for_class(
-    image: np.ndarray,
-    class_value: int,
+def create_circle_kernel(kernel_size: int) -> np.ndarray:
+    """Create a circular morphological kernel with proper radius scaling."""
+    kernel_center = (kernel_size - 1) / 2
+    row_indices, col_indices = np.ogrid[:kernel_size, :kernel_size]
+
+    distance_from_center = np.sqrt(
+        (col_indices - kernel_center) ** 2 + (row_indices - kernel_center) ** 2
+    )
+
+    radius_adjustment = 0.1 if kernel_size < 3 else 0.4
+    effective_radius = kernel_size / 2 - radius_adjustment
+
+    circular_mask = distance_from_center <= effective_radius
+
+    return circular_mask.astype(np.uint8)
+
+
+def _pick_code_dtype(num_codes_including_sentinel: int) -> np.dtype:
+    """Smallest unsigned int dtype that can hold ``num_codes`` distinct codes."""
+    if num_codes_including_sentinel <= 256:
+        return np.dtype(np.uint8)
+    if num_codes_including_sentinel <= 65536:
+        return np.dtype(np.uint16)
+    return np.dtype(np.uint32)
+
+
+def smooth_edges_to_codes(
+    array: np.ndarray,
+    smooth_edge_size: int,
+    target_class_values: List,
+    background_class_values: List,
+    all_class_values: List,
+    max_workers: Optional[int],
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Smooth target classes and produce a compact label-code array.
+
+    Returns ``(codes, code_to_value)``:
+      * ``codes`` -- shape ``array.shape``, smallest unsigned int dtype that
+        fits ``len(all_class_values) + 1``. Code ``0`` marks "needs filling"
+        (the equivalent of the previous NaN sentinel) and codes ``1..K``
+        correspond entry-by-entry with ``code_to_value[1..K]``.
+      * ``code_to_value`` -- 1D array of class values, dtype matches
+        ``array.dtype`` for integer inputs and uses the input's float dtype
+        for floating inputs. ``code_to_value[0]`` is a placeholder that is
+        never observed in valid output.
+
+    Replacing the prior ``float32`` smoothed-labels array (4 bytes/pixel)
+    with a uint8/uint16 code array (1-2 bytes/pixel) cuts the smoothed
+    buffer by 50-75% AND makes the per-class equality scan in
+    ``build_invalid_mask`` 2-4× cheaper in memory bandwidth.
+    """
+    classes_sorted = sorted(all_class_values)
+    K = len(classes_sorted)
+    code_dtype = _pick_code_dtype(K + 1)
+
+    # ``code_to_value[i]`` -> class value for code i (1..K). Slot 0 is a
+    # placeholder; invalid pixels are filled with a real code before any
+    # value lookup happens, so its content is never observed.
+    cv_dtype = array.dtype
+    if not np.issubdtype(cv_dtype, np.floating) and not np.issubdtype(
+        cv_dtype, np.integer
+    ):
+        cv_dtype = np.dtype(np.float64)
+    code_to_value = np.empty(K + 1, dtype=cv_dtype)
+    if K > 0:
+        code_to_value[1:] = np.asarray(classes_sorted, dtype=cv_dtype)
+        code_to_value[0] = code_to_value[1]  # benign placeholder
+    else:
+        # No real class values (e.g. all-NaN float input). The decode lookup
+        # ``code_to_value[codes]`` will return this slot for every pixel, so
+        # initialise it to a defined value rather than relying on whatever
+        # ``np.empty`` returned.
+        code_to_value[0] = np.nan if np.issubdtype(cv_dtype, np.floating) else 0
+
+    value_to_code = {v: i + 1 for i, v in enumerate(classes_sorted)}
+
+    if smooth_edge_size <= 0:
+        # No morphological smoothing -- codes come directly from ``array``.
+        codes = np.zeros(array.shape, dtype=code_dtype)
+        for v, k in value_to_code.items():
+            codes[array == v] = k
+        # NaN positions in float inputs do not match any class value above,
+        # so they remain at code 0 (the "needs filling" sentinel).
+        return codes, code_to_value
+
+    kernel = create_circle_kernel(smooth_edge_size)
+    codes = np.zeros(array.shape, dtype=code_dtype)
+
+    def _opened_for_class(cv_) -> Tuple[object, np.ndarray]:
+        # bool storage is 1 byte/element so ``.view(np.uint8)`` is a zero-
+        # copy reinterpretation -- avoids the bool→uint8 astype copy.
+        class_mask_u8 = (array == cv_).view(np.uint8)
+        opened_u8 = cv2.morphologyEx(
+            class_mask_u8, cv2.MORPH_OPEN, kernel, iterations=1
+        )
+        return cv_, opened_u8.view(bool)
+
+    if target_class_values:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(_opened_for_class, cv_): cv_
+                for cv_ in target_class_values
+            }
+            for fut in as_completed(futures):
+                cv_, opened_mask = fut.result()
+                codes[opened_mask] = value_to_code[cv_]
+                # Drop the per-class mask immediately so it can be reclaimed
+                # before the next future returns.
+                del opened_mask
+
+    if background_class_values:
+        # Background classes occupy any pixel still flagged as code 0. Done
+        # per-value to mirror the original semantics (which only writes
+        # background where the float buffer was still NaN). Skip NaN values
+        # since equality with NaN is always False.
+        for b in background_class_values:
+            if isinstance(b, float) and np.isnan(b):
+                continue
+            bg_code = value_to_code.get(b)
+            if bg_code is None:
+                continue
+            bg_mask = (array == b) & (codes == 0)
+            if bg_mask.any():
+                codes[bg_mask] = bg_code
+
+    return codes, code_to_value
+
+
+def _small_islands_mask_for_code(
+    codes: np.ndarray,
+    code_value: int,
     min_size: int,
     connectivity: int,
-) -> np.ndarray:
+) -> Optional[np.ndarray]:
+    """Bool mask of pixels in components below ``min_size`` for one code.
+
+    Returns ``None`` when the code does not appear in ``codes`` so the
+    caller can skip an OR step entirely.
     """
-    Identify small connected components for a single class using area analysis.
+    # uint8/uint16 equality is 2-4× cheaper in memory bandwidth than
+    # float32; the resulting bool's storage is reinterpreted as uint8 so it
+    # can feed ``cv2.connectedComponentsWithStats`` without a copy.
+    class_mask_u8 = (codes == code_value).view(np.uint8)
+    if not class_mask_u8.any():
+        return None
 
-    Uses OpenCV's connected components analysis to find regions smaller than
-    the minimum size threshold. NaN values are automatically excluded from
-    analysis as they compare False in equality operations.
-
-    Parameters:
-    -----------
-    image : np.ndarray
-        Classification array (may contain NaN values)
-    class_value : int
-        Specific class value to analyse for small components
-    min_size : int
-        Minimum area threshold for connected components (pixels)
-    connectivity : int
-        Pixel connectivity for component analysis (4 or 8)
-
-    Returns:
-    --------
-    np.ndarray
-        Boolean mask indicating small connected components for the specified class
-    """
-    # NaNs compare False, so they are excluded automatically
-    class_mask_u8 = (image == class_value).astype(np.uint8, copy=False)
-    if class_mask_u8.sum() == 0:
-        return np.zeros_like(class_mask_u8, dtype=bool)
-
-    # labels: 0 is background
     _, labels, stats, _ = cv2.connectedComponentsWithStats(
         class_mask_u8, connectivity=connectivity, ltype=cv2.CV_32S
     )
@@ -53,231 +163,66 @@ def small_islands_mask_for_class(
     return small_component_label[labels]
 
 
-def create_circle_kernel(kernel_size: int) -> np.ndarray:
-    """
-    Create a circular morphological kernel with proper radius scaling.
-
-    For small kernels (size < 3), uses minimal radius adjustment to preserve
-    shape. For larger kernels, uses more aggressive adjustment for better
-    circular appearance.
-
-    Parameters:
-    -----------
-    kernel_size : int
-        Size of the square kernel (width and height)
-
-    Returns:
-    --------
-    np.ndarray
-        Binary circular kernel of shape (kernel_size, kernel_size)
-    """
-    kernel_center = (kernel_size - 1) / 2
-    row_indices, col_indices = np.ogrid[:kernel_size, :kernel_size]
-
-    # Calculate Euclidean distance from each pixel to kernel center
-    distance_from_center = np.sqrt(
-        (col_indices - kernel_center) ** 2 + (row_indices - kernel_center) ** 2
-    )
-
-    # Determine radius adjustment based on kernel size
-    # Small kernels need minimal adjustment, larger ones need more for clean circles
-    radius_adjustment = 0.1 if kernel_size < 3 else 0.4
-    effective_radius = kernel_size / 2 - radius_adjustment
-
-    # Create circular mask where distance <= radius
-    circular_mask = distance_from_center <= effective_radius
-
-    return circular_mask.astype(np.uint8)
-
-
-def smooth_edges(
-    array: np.ndarray,
-    smooth_edge_size: int,
-    target_class_values: List[int],
-    background_class_values: List[int],
-    max_workers: Optional[int],
-) -> np.ndarray:
-    """
-    Apply morphological opening to smooth edges for specified target classes.
-
-    Background classes are preserved without morphological processing and used
-    to fill regions where target class smoothing creates gaps. Uses parallel
-    processing for efficiency across multiple classes.
-
-    Parameters:
-    -----------
-    array : np.ndarray
-        Input classification array
-    smooth_edge_size : int
-        Size of circular kernel for morphological opening operations
-    target_class_values : List[int]
-        Classes to apply edge smoothing to
-    background_class_values : List[int]
-        Classes to preserve as-is for gap filling
-    max_workers : Optional[int]
-        Number of worker threads for parallel processing
-
-    Returns:
-    --------
-    np.ndarray
-        Float array with smoothed target classes and preserved background classes
-    """
-    if smooth_edge_size > 0:
-        # Kernel for morphological opening
-        kernel = create_circle_kernel(smooth_edge_size)
-
-        # Work in float with NaN as nodata
-        smoothed_labels = np.full(array.shape, np.nan, dtype=np.float32)
-
-        # Step 1: edge smoothing per class
-        def _opened_mask_for_class(cv: int) -> Tuple[int, np.ndarray]:
-            class_mask_u8 = (array == cv).astype(np.uint8, copy=False)
-            opened_u8 = cv2.morphologyEx(
-                class_mask_u8, cv2.MORPH_OPEN, kernel, iterations=1
-            )
-            return cv, opened_u8.astype(bool, copy=False)
-
-        opened_masks: Dict[int, np.ndarray] = {}
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(_opened_mask_for_class, cv): cv
-                for cv in target_class_values
-            }
-            for fut in as_completed(futures):
-                cv, opened_mask = fut.result()
-                opened_masks[cv] = opened_mask
-                smoothed_labels[opened_mask] = float(cv)
-        # fill any nan value with background class if possible
-        if background_class_values:
-            background_class_mask = np.isin(array, background_class_values) & np.isnan(
-                smoothed_labels
-            )
-            if background_class_mask.any():
-                smoothed_labels[background_class_mask] = array[
-                    background_class_mask
-                ].astype(np.float32)
-
-    else:
-        smoothed_labels = array.astype(np.float32, copy=True)
-    return smoothed_labels
-
-
-def find_small_islands(
-    smoothed_labels: np.ndarray,
-    target_class_values: List[int],
+def build_invalid_mask(
+    codes: np.ndarray,
+    target_codes: List[int],
     min_island_size: int,
     connectivity: int,
     max_workers: Optional[int],
-) -> Dict[int, np.ndarray]:
+) -> np.ndarray:
+    """Bool mask of pixels needing fill = (code 0) ∪ small islands.
+
+    Initialises the invalid mask from ``codes == 0`` and OR-reduces each
+    per-class small-island mask in place as workers complete. Peak extra
+    memory is one mask per concurrent worker -- not K masks at once like
+    the prior ``Dict[int, ndarray]`` approach (which held ~43 GB of bool
+    masks simultaneously on the NLUM benchmark).
     """
-    Detect small connected components (islands) for each target class in parallel.
+    invalid_mask = codes == 0
 
-    Identifies regions smaller than the minimum size threshold using OpenCV's
-    connected components analysis. Only processes target classes, ignoring
-    background classes that were preserved during edge smoothing.
+    if min_island_size <= 0 or not target_codes:
+        return invalid_mask
 
-    Parameters:
-    -----------
-    smoothed_labels : np.ndarray
-        Array after edge smoothing (may contain NaN values)
-    target_class_values : List[int]
-        Classes to analyse for small islands
-    min_island_size : int
-        Minimum size threshold for connected components
-    connectivity : int
-        Connectivity for component analysis (4 or 8)
-    max_workers : Optional[int]
-        Number of worker threads for parallel processing
-
-    Returns:
-    --------
-    Dict[int, np.ndarray]
-        Dictionary mapping class values to boolean masks of small islands
-    """
-    small_islands_by_class: Dict[int, np.ndarray] = {}
-    if min_island_size <= 0:
-        return small_islands_by_class
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             executor.submit(
-                small_islands_mask_for_class,
-                image=smoothed_labels,
-                class_value=cv,
-                min_size=min_island_size,
-                connectivity=connectivity,
-            ): cv
-            for cv in target_class_values
+                _small_islands_mask_for_code,
+                codes,
+                k,
+                min_island_size,
+                connectivity,
+            ): k
+            for k in target_codes
         }
         for fut in as_completed(futures):
-            cv = futures[fut]
-            small_islands_by_class[cv] = fut.result()
-    return small_islands_by_class
+            mask = fut.result()
+            if mask is not None:
+                np.logical_or(invalid_mask, mask, out=invalid_mask)
+                del mask
 
-
-def build_invalid_mask(
-    smoothed_labels: np.ndarray, small_islands_by_class: Dict[int, np.ndarray]
-) -> np.ndarray:
-    """
-    Create combined mask of all pixels requiring gap filling.
-
-    Combines NaN pixels from edge smoothing with small island pixels identified
-    during island detection. The resulting mask indicates all regions that need
-    to be filled using nearest-neighbour interpolation.
-
-    Parameters:
-    -----------
-    smoothed_labels : np.ndarray
-        Array after edge smoothing (may contain NaN values)
-    small_islands_by_class : Dict[int, np.ndarray]
-        Dictionary of small island masks for each class
-
-    Returns:
-    --------
-    np.ndarray
-        Boolean mask indicating all pixels requiring filling
-    """
-    invalid_mask = np.isnan(smoothed_labels)
-    if small_islands_by_class:
-        invalid_mask = np.logical_or.reduce(
-            [invalid_mask]
-            + [small_islands_by_class[cv] for cv in small_islands_by_class]
-        )
     return invalid_mask
 
 
-def fill_invalids(
-    smoothed_labels: np.ndarray, invalid_mask: np.ndarray, all_class_values: List[int]
-) -> np.ndarray:
+def fill_invalids(codes: np.ndarray, invalid_mask: np.ndarray) -> np.ndarray:
+    """Fill invalid pixels using nearest-neighbour interpolation, in place.
+
+    The fill writes to invalid positions and reads from valid positions, so
+    the two index sets are disjoint and we can safely modify ``codes`` in
+    place rather than copying it.
+
+    Also passes ``return_distances=False`` to skip scipy's internal float64
+    distance allocation -- we only need the index map.
     """
-    Fill invalid pixels using nearest-neighbour interpolation from valid pixels.
-
-    Uses Euclidean distance transform to find the closest valid pixel for each
-    invalid region. Valid pixels include all classes present in the array,
-    ensuring natural gap filling across class boundaries.
-
-    Parameters:
-    -----------
-    smoothed_labels : np.ndarray
-        Array with invalid regions marked for filling
-    invalid_mask : np.ndarray
-        Boolean mask indicating pixels requiring filling
-    all_class_values : List[int]
-        All valid class values that can serve as sources for filling
-
-    Returns:
-    --------
-    np.ndarray
-        Array with all invalid regions filled using nearest valid values
-    """
-    output = smoothed_labels.copy()
-    valid_mask = ~invalid_mask & np.isin(smoothed_labels, all_class_values)
-
-    if valid_mask.any():
-        _, nearest_idx = distance_transform_edt(~valid_mask, return_indices=True)  # type: ignore
+    if (~invalid_mask).any():
+        # ``return_distances=False, return_indices=True`` returns just the
+        # ndim-by-shape int32 index array; the type stubs don't model this
+        # specific overload so we cast for the type checker.
+        nearest_idx: np.ndarray = distance_transform_edt(  # type: ignore[assignment]
+            invalid_mask, return_distances=False, return_indices=True
+        )
         yy = nearest_idx[0, invalid_mask]
         xx = nearest_idx[1, invalid_mask]
-        output[invalid_mask] = smoothed_labels[yy, xx]
-    else:
-        # If everything is invalid, just return what we’ve got post-smoothing
-        output = smoothed_labels
-    return output
+        codes[invalid_mask] = codes[yy, xx]
+    # When everything is invalid there is nothing to fill from -- leave
+    # ``codes`` unchanged (every pixel still at code 0).
+    return codes

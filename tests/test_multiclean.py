@@ -262,3 +262,78 @@ def test_fill_nan_true_with_all_nan_returns_all_nan():
 
     # Assert: still all NaN due to absence of any valid pixel
     assert np.isnan(out).all()
+
+
+def test_all_nan_fill_nan_true_is_deterministically_nan():
+    # Regression: with no real classes the internal code-to-value lookup
+    # has only its sentinel slot. That slot must be deterministically NaN
+    # for float input, not whatever np.empty happened to leave there.
+    arr = np.full((6, 6), np.nan, dtype=np.float32)
+    for _ in range(3):
+        out = clean_array(arr, smooth_edge_size=0, min_island_size=1, fill_nan=True)
+        assert out.dtype == np.float32
+        assert np.isnan(out).all()
+
+
+def test_dtype_preserved_for_float64_and_large_ints():
+    # float64 input must round-trip as float64 (the previous implementation
+    # silently downcast through float32 and lost precision).
+    arr_f64 = np.array([[0.5, 1.5], [2.5, 3.5]], dtype=np.float64)
+    out_f64 = clean_array(arr_f64, smooth_edge_size=0, min_island_size=1)
+    assert out_f64.dtype == np.float64
+    assert np.array_equal(out_f64, arr_f64)
+
+    # int32 values past 2**24 cannot survive a float32 round-trip exactly --
+    # this asserts they are preserved bit-exactly.
+    arr_i32 = np.array([[2_147_483_600, 2_147_483_601]], dtype=np.int32)
+    out_i32 = clean_array(arr_i32, smooth_edge_size=0, min_island_size=1)
+    assert out_i32.dtype == np.int32
+    assert np.array_equal(out_i32, arr_i32)
+
+    # int64 with values past 2**53 likewise cannot round-trip via float64.
+    big = (1 << 60) + 7
+    arr_i64 = np.array([[big, big + 1], [big + 2, big + 3]], dtype=np.int64)
+    out_i64 = clean_array(arr_i64, smooth_edge_size=0, min_island_size=1)
+    assert out_i64.dtype == np.int64
+    assert np.array_equal(out_i64, arr_i64)
+
+
+def test_many_classes_exercises_uint16_code_path():
+    # K > 254 forces the internal label codes onto the uint16 path. Use
+    # >300 unique values to make sure the wider dtype is exercised.
+    rng = np.random.default_rng(0)
+    arr = rng.integers(0, 300, size=(120, 120), dtype=np.int32)
+    assert len(np.unique(arr)) > 254
+
+    out = clean_array(
+        arr,
+        smooth_edge_size=0,
+        min_island_size=1,  # remove components with area < 1 (none)
+        connectivity=4,
+    )
+    assert out.dtype == arr.dtype
+    assert np.array_equal(out, arr)
+
+
+def test_subset_targets_leave_multiple_background_classes_untouched():
+    # Build small islands for several classes; only ask to clean class 1.
+    # Every other class must come back bit-identical, regardless of size.
+    arr = np.zeros((6, 8), dtype=np.int32)
+    arr[1, 1] = 1  # tiny class-1 island (target -- should be removed)
+    arr[2, 5] = 2  # tiny class-2 island (background -- must be preserved)
+    arr[4, 2] = 3  # tiny class-3 island (background -- must be preserved)
+    arr[4, 6] = 4  # tiny class-4 island (background -- must be preserved)
+
+    out = clean_array(
+        arr,
+        class_values=[1],
+        smooth_edge_size=0,
+        min_island_size=2,  # would remove every single-pixel island if processed
+        connectivity=4,
+    )
+
+    assert out[1, 1] == 0  # class-1 island removed and filled from background
+    # Background-class pixels are untouched even though they are tiny:
+    assert out[2, 5] == 2
+    assert out[4, 2] == 3
+    assert out[4, 6] == 4

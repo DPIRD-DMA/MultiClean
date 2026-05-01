@@ -2,12 +2,7 @@ from typing import List, Optional, Union
 
 import numpy as np
 
-from .utils import (
-    build_invalid_mask,
-    fill_invalids,
-    find_small_islands,
-    smooth_edges,
-)
+from .utils import build_invalid_mask, fill_invalids, smooth_edges_to_codes
 
 
 def clean_array(
@@ -58,68 +53,66 @@ def clean_array(
     if array.ndim != 2:
         raise ValueError("Input array must be 2D")
 
+    is_float = np.issubdtype(array.dtype, np.floating)
+
     all_class_values = np.unique(array).tolist()
-    # Remove NaN from class values if present
-    if np.issubdtype(array.dtype, np.floating):
+    if is_float:
         all_class_values = [v for v in all_class_values if not np.isnan(v)]
 
     if class_values is None:
-        target_class_values = all_class_values
+        target_class_values = list(all_class_values)
+    elif isinstance(class_values, int):
+        target_class_values = [class_values]
     else:
-        if isinstance(class_values, int):
-            target_class_values = [class_values]
-        else:
-            target_class_values = list(class_values)
+        target_class_values = list(class_values)
 
     background_class_values = list(set(all_class_values) - set(target_class_values))
 
-    if np.issubdtype(array.dtype, np.floating) and not fill_nan:
+    if is_float and not fill_nan:
         nan_mask = np.isnan(array)
-        if nan_mask.any():
-            background_class_values.append(np.nan)
+        if not nan_mask.any():
+            nan_mask = None
     else:
         nan_mask = None
 
-    smoothed_labels = smooth_edges(
+    codes, code_to_value = smooth_edges_to_codes(
         array=array,
         smooth_edge_size=smooth_edge_size,
         target_class_values=target_class_values,
         background_class_values=background_class_values,
+        all_class_values=all_class_values,
         max_workers=max_workers,
     )
 
-    small_islands_by_class = find_small_islands(
-        smoothed_labels=smoothed_labels,
-        target_class_values=target_class_values,
+    # Find target codes (1..K) for the requested target classes.
+    classes_sorted = sorted(all_class_values)
+    value_to_code = {v: i + 1 for i, v in enumerate(classes_sorted)}
+    target_codes = [value_to_code[v] for v in target_class_values if v in value_to_code]
+
+    invalid_mask = build_invalid_mask(
+        codes=codes,
+        target_codes=target_codes,
         min_island_size=min_island_size,
         connectivity=connectivity,
         max_workers=max_workers,
     )
 
-    invalid_mask = build_invalid_mask(
-        smoothed_labels=smoothed_labels,
-        small_islands_by_class=small_islands_by_class,
-    )
+    codes = fill_invalids(codes, invalid_mask)
 
-    if not invalid_mask.any():
-        # Apply original NaN mask if present
-        if nan_mask is not None and nan_mask.any():
-            smoothed_labels[nan_mask] = np.nan
-        if np.issubdtype(array.dtype, np.integer):
-            return smoothed_labels.astype(array.dtype, copy=False)
-        return smoothed_labels
+    # Decode codes back to class values via vectorised lookup. ``np.take``
+    # uses ``out`` so we can write directly into a typed buffer.
+    output = code_to_value[codes]
 
-    output = fill_invalids(
-        smoothed_labels=smoothed_labels,
-        invalid_mask=invalid_mask,
-        all_class_values=all_class_values,
-    )
-
-    # Convert back to original dtype if integer
-    if np.issubdtype(array.dtype, np.integer):
-        return output.astype(array.dtype, copy=False)
-
-    # Apply original NaN mask if present
-    if nan_mask is not None and nan_mask.any():
+    if is_float and nan_mask is not None:
+        # Restore original NaN positions when fill_nan=False (they were
+        # included in invalid_mask only to keep them off the fill-source set).
+        if not np.issubdtype(output.dtype, np.floating):
+            output = output.astype(np.float64)
         output[nan_mask] = np.nan
+
+    if np.issubdtype(array.dtype, np.integer):
+        output = output.astype(array.dtype, copy=False)
+    elif is_float and output.dtype != array.dtype:
+        output = output.astype(array.dtype, copy=False)
+
     return output
