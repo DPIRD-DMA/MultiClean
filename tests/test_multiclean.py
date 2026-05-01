@@ -5,9 +5,9 @@ import pytest
 
 from multiclean import clean_array
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-LANDSAT_INPUT = REPO_ROOT / "notebooks" / "data" / "Landsat cloud and cloud shadow.tif"
-LANDSAT_EXPECTED = Path(__file__).resolve().parent / "data" / "landsat_expected.npz"
+TEST_DATA_DIR = Path(__file__).resolve().parent / "data"
+LANDSAT_INPUT = TEST_DATA_DIR / "Landsat cloud and cloud shadow.tif"
+LANDSAT_EXPECTED = TEST_DATA_DIR / "landsat_expected.npz"
 
 
 def test_identity_when_no_smoothing_no_island_removal():
