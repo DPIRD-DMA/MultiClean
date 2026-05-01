@@ -1,7 +1,13 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 
 from multiclean import clean_array
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+LANDSAT_INPUT = REPO_ROOT / "notebooks" / "data" / "Landsat cloud and cloud shadow.tif"
+LANDSAT_EXPECTED = Path(__file__).resolve().parent / "data" / "landsat_expected.npz"
 
 
 def test_identity_when_no_smoothing_no_island_removal():
@@ -337,3 +343,26 @@ def test_subset_targets_leave_multiple_background_classes_untouched():
     assert out[2, 5] == 2
     assert out[4, 2] == 3
     assert out[4, 6] == 4
+
+
+@pytest.mark.skipif(
+    not LANDSAT_INPUT.exists() or not LANDSAT_EXPECTED.exists(),
+    reason="Landsat fixture missing -- run from a checkout that includes "
+    "notebooks/data/ and tests/data/landsat_expected.npz",
+)
+def test_landsat_cloud_shadow_matches_main_branch_output():
+    # Regression test: the cleaned cloud/cloud-shadow mask from the
+    # `notebooks/Cloud example.ipynb` example must stay bit-identical to the
+    # output produced by the original ``main`` branch implementation.
+    # ``tests/data/landsat_expected.npz`` was generated on ``main`` with the
+    # same (smooth_edge_size=3, min_island_size=5) settings the notebook uses.
+    rasterio = pytest.importorskip("rasterio")
+    with rasterio.open(LANDSAT_INPUT) as ds:
+        arr = ds.read(1)
+
+    out = clean_array(array=arr, smooth_edge_size=3, min_island_size=5)
+
+    expected = np.load(LANDSAT_EXPECTED)["cleaned"]
+    assert out.shape == expected.shape
+    assert out.dtype == expected.dtype
+    assert np.array_equal(out, expected)
