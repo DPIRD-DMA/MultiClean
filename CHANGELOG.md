@@ -4,6 +4,8 @@ All notable changes to MultiClean are documented here.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-02
+
 ### Changed
 - **Performance.** `clean_array` is substantially faster on multi-class inputs.
   On a 15669×18633 / 147-class land-use raster, end-to-end runtime dropped
@@ -55,6 +57,7 @@ All notable changes to MultiClean are documented here.
 - Documentation: README, two example notebooks (land use, cloud
   shadow), and a Google Colab tutorial notebook.
 
-[Unreleased]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/DPIRD-DMA/MultiClean/releases/tag/v0.1.0
