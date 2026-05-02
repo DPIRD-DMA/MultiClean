@@ -1,8 +1,6 @@
 # Changelog
 
-All notable changes to MultiClean are documented here. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
-adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+All notable changes to MultiClean are documented here.
 
 ## [Unreleased]
 
@@ -14,9 +12,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - Replacing the float32 smoothed-labels buffer with a `uint8`/`uint16`
     class-code array (selected automatically based on class count). The
     per-class equality scan is 2-4× cheaper in memory bandwidth.
-  - OR-reducing per-class small-island masks in flight rather than holding a
-    `Dict[class -> ndarray]` of K masks simultaneously (peak working set
-    reduced by ~43 GB on the 147-class benchmark).
+  - OR-reducing per-class small-island masks in flight rather than holding
+    a `Dict[class -> ndarray]` of K masks simultaneously and then reducing
+    them in one shot. This avoids a `(K, H, W)` stacked-mask intermediate
+    in the OR-reduce step. Peak RSS on the 4-class 8011×7901 Landsat
+    example dropped from ~5.4 GB to ~2.8 GB; on the 147-class
+    15669×18633 raster the saving was smaller in absolute terms because
+    OS memory compression made the per-class bool masks cheap to hold.
   - Filling invalid pixels in place rather than allocating a copy.
   - Replacing `scipy.ndimage.distance_transform_edt` with
     `cv2.distanceTransformWithLabels` for the nearest-valid fill (~3.4×
