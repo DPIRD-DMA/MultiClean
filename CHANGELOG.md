@@ -12,15 +12,8 @@ All notable changes to MultiClean are documented here.
   - Replacing the float32 smoothed-labels buffer with a `uint8`/`uint16`
     class-code array (selected automatically based on class count). The
     per-class equality scan is 2-4× cheaper in memory bandwidth.
-  - Merging each per-class small-island mask into the running invalid-mask
-    buffer as soon as the worker completes, rather than collecting all K
-    masks into a `Dict[class -> ndarray]` and reducing them in one shot
-    at the end. This avoids the `(K, H, W)` stacked-mask intermediate
-    that the previous reduction allocated. Peak RSS on the 4-class
-    8011×7901 Landsat example dropped from ~5.4 GB to ~2.8 GB; on the
-    147-class 15669×18633 raster the saving was smaller in absolute
-    terms because OS memory compression made the per-class bool masks
-    cheap to hold.
+  - Combining per-class small-island masks in flight instead of
+    accumulating all K of them first.
   - Filling invalid pixels in place rather than allocating a copy.
   - Replacing `scipy.ndimage.distance_transform_edt` with
     `cv2.distanceTransformWithLabels` for the nearest-valid fill (~3.4×
