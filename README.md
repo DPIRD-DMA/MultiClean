@@ -156,6 +156,10 @@ See the notebooks folder for end-to-end examples:
 [Colab_Button]: https://img.shields.io/badge/Try%20in%20Colab-grey?style=for-the-badge&logo=google-colab
 
 
+## Changelog
+
+Release notes and the full version history are kept in [CHANGELOG.md](https://github.com/DPIRD-DMA/MultiClean/blob/main/CHANGELOG.md).
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

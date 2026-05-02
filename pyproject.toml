@@ -47,6 +47,8 @@ version = {attr = "multiclean.__version__.__version__"}
 
 [project.urls]
 Homepage = "https://github.com/DPIRD-DMA/MultiClean"
+Repository = "https://github.com/DPIRD-DMA/MultiClean"
+Changelog = "https://github.com/DPIRD-DMA/MultiClean/blob/main/CHANGELOG.md"
 
 
 [tool.setuptools]
