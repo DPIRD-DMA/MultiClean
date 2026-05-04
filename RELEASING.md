@@ -4,17 +4,6 @@ How to cut a new release to PyPI. The whole flow is driven from a single
 `v*` git tag — `setuptools-scm` reads the version from the tag and
 `pypa/gh-action-pypi-publish` ships the wheel.
 
-## Prerequisites (one-time, already configured)
-
-- **PyPI trusted publisher** points at `DPIRD-DMA/MultiClean`,
-  workflow `publish.yml`, environment `pypi`. Set under the project's
-  *Publishing* settings on PyPI.
-- **GitHub Environment `pypi`** has a required-reviewer rule (so the
-  publish step pauses for an approval click) and a tag-deployment rule
-  restricting to `v*`. Set under *Settings → Environments → pypi*.
-- **No PyPI API tokens** are stored anywhere — auth happens via OIDC
-  on each workflow run.
-
 ## Cutting a release
 
 1. **Update [`CHANGELOG.md`](CHANGELOG.md).**
