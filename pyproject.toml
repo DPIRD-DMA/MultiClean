@@ -54,5 +54,8 @@ Changelog = "https://github.com/DPIRD-DMA/MultiClean/blob/main/CHANGELOG.md"
 [tool.setuptools]
 packages = ["multiclean"]
 
+[tool.setuptools.package-data]
+multiclean = ["py.typed"]
+
 [tool.ruff.lint]
 select = ["E", "F", "B"]
