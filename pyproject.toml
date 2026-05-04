@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 61.0"]
+requires = ["setuptools>=68", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -27,27 +27,35 @@ keywords = [
 requires-python = ">=3.9"
 dependencies = [
     "opencv-python>=4.0",
-    "scipy>=1.0",
 ]
 [dependency-groups]
 dev = [
     "jupyter>=1.0",
     "matplotlib>=3.0",
+    "mypy>=1.19",
+    "pre-commit>=4.0",
     "rasterio>=1.0",
-    "ruff>=0.1",
+    "ruff>=0.15.8",
     "pytest>=8.0",
-
 ]
-[tool.setuptools.dynamic]
-version = {attr = "multiclean.__version__.__version__"}
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.setuptools_scm]
 
 
 [project.urls]
 Homepage = "https://github.com/DPIRD-DMA/MultiClean"
+Repository = "https://github.com/DPIRD-DMA/MultiClean"
+Changelog = "https://github.com/DPIRD-DMA/MultiClean/blob/main/CHANGELOG.md"
 
 
 [tool.setuptools]
 packages = ["multiclean"]
+
+[tool.setuptools.package-data]
+multiclean = ["py.typed"]
 
 [tool.ruff.lint]
 select = ["E", "F", "B"]

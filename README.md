@@ -61,14 +61,14 @@ MultiClean is designed for cleaning segmentation outputs from:
 - **Edge smoothing**: Morphological opening to reduce jagged boundaries
 - **Island removal**: Remove small connected components per class
 - **Gap filling**: Fill invalids via nearest valid class (distance transform)
-- **Fast**: NumPy + OpenCV + SciPy with parallelism
+- **Fast**: NumPy + OpenCV with parallelism
 
 
 ## How It Works
 
 MultiClean uses morphological operations to clean classification arrays:
 
-1. **Edge smoothing (per class)**: Morphological opening with an elliptical kernel.
+1. **Edge smoothing (per class)**: Morphological opening with a circular kernel.
 2. **Island removal (per class)**: Find connected components (OpenCV) and mark components with area `< min_island_size` as invalid.
 3. **Gap filling**: Compute a distance transform to copy the nearest valid class into invalid pixels.
 
@@ -100,7 +100,7 @@ out = clean_array(
 - `max_workers`: Parallelism for per-class operations (None lets the executor choose).
 - `fill_nan`: If True will fill NAN values from input array with nearest valid value.
 
-Returns a numpy array matching the input shape. Integer inputs return integer outputs. Float arrays with `NaN` are supported and can be filled or remain as NAN.
+Returns a numpy array matching the input shape and dtype. Float arrays with `NaN` are supported and can be filled or remain as `NaN`.
 
 ## Examples
 
@@ -156,9 +156,15 @@ See the notebooks folder for end-to-end examples:
 [Colab_Button]: https://img.shields.io/badge/Try%20in%20Colab-grey?style=for-the-badge&logo=google-colab
 
 
+## Changelog
+
+Release notes and the full version history are kept in [CHANGELOG.md](https://github.com/DPIRD-DMA/MultiClean/blob/main/CHANGELOG.md).
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+Maintainers: see [RELEASING.md](https://github.com/DPIRD-DMA/MultiClean/blob/main/RELEASING.md) for how to cut a release.
 
 ## License
 
