@@ -1,5 +1,6 @@
 # MultiClean
-[![image](https://img.shields.io/pypi/v/multiclean.svg)](https://pypi.python.org/pypi/multiclean)
+[![PyPI](https://img.shields.io/pypi/v/multiclean.svg)](https://pypi.python.org/pypi/multiclean)
+[![Conda](https://img.shields.io/conda/vn/conda-forge/multiclean.svg)](https://anaconda.org/conda-forge/multiclean)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tutorials](https://img.shields.io/badge/Tutorials-Learn-brightgreen)](https://github.com/DPIRD-DMA/MultiClean/tree/main/notebooks)
@@ -20,6 +21,10 @@ pip install multiclean
 or
 ```bash
 uv add multiclean
+```
+or
+```bash
+conda install -c conda-forge multiclean
 ```
 
 ## Quick Start
