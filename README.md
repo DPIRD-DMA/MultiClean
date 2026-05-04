@@ -164,6 +164,8 @@ Release notes and the full version history are kept in [CHANGELOG.md](https://gi
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+Maintainers: see [RELEASING.md](https://github.com/DPIRD-DMA/MultiClean/blob/main/RELEASING.md) for how to cut a release.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
