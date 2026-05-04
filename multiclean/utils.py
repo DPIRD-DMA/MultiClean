@@ -231,12 +231,16 @@ def fill_invalids(codes: np.ndarray, invalid_mask: np.ndarray) -> np.ndarray:
     # bool storage is one byte per element so .view(np.uint8) is a zero-copy
     # reinterpretation.
     src = invalid_mask.view(np.uint8)
-    _, labels = cv2.distanceTransformWithLabels(
+    _, labels_raw = cv2.distanceTransformWithLabels(
         src,
         cv2.DIST_L2,
         cv2.DIST_MASK_PRECISE,
         labelType=cv2.DIST_LABEL_PIXEL,
     )
+    # cv2's MatLike return type is too loose for type checkers to see the
+    # int32 dtype; narrow it for the indexing operations below. Runtime
+    # is a no-op when the dtype already matches.
+    labels: np.ndarray = np.asarray(labels_raw, dtype=np.int32)
 
     # Each valid pixel gets a unique label; each invalid pixel inherits the
     # label of its nearest valid pixel. Build a contiguous label -> code
