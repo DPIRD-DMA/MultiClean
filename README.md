@@ -1,9 +1,14 @@
-# MultiClean
-[![PyPI](https://img.shields.io/pypi/v/multiclean.svg)](https://pypi.python.org/pypi/multiclean)
-[![Conda](https://img.shields.io/conda/vn/conda-forge/multiclean.svg)](https://anaconda.org/conda-forge/multiclean)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tutorials](https://img.shields.io/badge/Tutorials-Learn-brightgreen)](https://github.com/DPIRD-DMA/MultiClean/tree/main/notebooks)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/DPIRD-DMA/MultiClean/main/assets/multiclean-logo.svg" alt="MultiClean" width="640"/>
+</p>
+
+<p align="center">
+  <a href="https://pypi.python.org/pypi/multiclean"><img src="https://img.shields.io/pypi/v/multiclean.svg" alt="PyPI"/></a>
+  <a href="https://anaconda.org/conda-forge/multiclean"><img src="https://img.shields.io/conda/vn/conda-forge/multiclean.svg" alt="Conda"/></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python 3.9+"/></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/></a>
+  <a href="https://github.com/DPIRD-DMA/MultiClean/tree/main/notebooks"><img src="https://img.shields.io/badge/Tutorials-Learn-brightgreen" alt="Tutorials"/></a>
+</p>
 
 **MultiClean** is a Python library for morphological cleaning of multiclass 2D numpy arrays (segmentation masks and classification rasters). It provides efficient tools for edge smoothing and small-island removal across multiple classes, then fills gaps using the nearest valid class.
 
