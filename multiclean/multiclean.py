@@ -66,6 +66,11 @@ def clean_array(
     else:
         target_class_values = list(class_values)
 
+    # Requested classes that do not occur in this array have nothing to clean,
+    # so drop them here rather than letting them reach the code lookups.
+    present = set(all_class_values)
+    target_class_values = [v for v in target_class_values if v in present]
+
     background_class_values = list(set(all_class_values) - set(target_class_values))
 
     if is_float and not fill_nan:
