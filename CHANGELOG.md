@@ -4,6 +4,16 @@ All notable changes to MultiClean are documented here.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-21
+
+### Fixed
+- `clean_array` no longer raises `KeyError` when `class_values` names a class
+  that does not occur in the input array. Requested classes absent from the
+  array are now ignored, matching the behaviour that already applied when
+  `smooth_edge_size=0`. This mainly affected tiled processing, where a single
+  fixed class list is reused across tiles whose contents vary — the failure
+  depended on the data, so it surfaced intermittently.
+
 ## [0.3.0] - 2026-05-02
 
 ### Changed
@@ -57,7 +67,8 @@ All notable changes to MultiClean are documented here.
 - Documentation: README, two example notebooks (land use, cloud
   shadow), and a Google Colab tutorial notebook.
 
-[Unreleased]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/DPIRD-DMA/MultiClean/releases/tag/v0.1.0

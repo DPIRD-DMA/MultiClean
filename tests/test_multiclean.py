@@ -177,6 +177,117 @@ def test_class_values_subset_limits_processing():
     assert out[3, 3] == 2
 
 
+def test_class_values_absent_from_array_are_ignored():
+    # A requested class that does not occur in the array is a no-op, not an
+    # error, and must behave the same with and without edge smoothing.
+    arr = np.full((64, 64), 254, dtype=np.uint8)
+    arr[10:50, 10:50] = 1  # only class 1 (and background 254) present
+
+    for smooth_edge_size in (0, 3):
+        kwargs = dict(
+            smooth_edge_size=smooth_edge_size,
+            min_island_size=10,
+            connectivity=4,
+            max_workers=2,
+        )
+        with_absent = clean_array(arr, class_values=[0, 1], **kwargs)
+        without_absent = clean_array(arr, class_values=[1], **kwargs)
+
+        assert with_absent.dtype == arr.dtype
+        # Naming an absent class changes nothing about the result.
+        assert np.array_equal(with_absent, without_absent)
+
+
+# --- Parameter sweeps -------------------------------------------------------
+#
+# The absent-class KeyError was invisible to single-point tests because it only
+# fired in one corner of the parameter space (smoothing enabled). These sweeps
+# assert invariants across the grid instead, so a regression that survives in
+# any single branch still fails the suite.
+
+SWEEP_DTYPES = [np.uint8, np.int16, np.int32, np.float32]
+SWEEP_SMOOTH = [0, 1, 3]
+SWEEP_ISLAND = [0, 25]
+
+
+def _sweep_array(dtype) -> np.ndarray:
+    """Multiclass array holding classes {1, 2, 3, 7}, with a 1-pixel island."""
+    arr = np.full((32, 32), 7, dtype=dtype)
+    arr[4:20, 4:20] = 1
+    arr[24:28, 24:28] = 2
+    arr[0, 0] = 3  # single-pixel island, removable by min_island_size
+    return arr
+
+
+@pytest.mark.parametrize("dtype", SWEEP_DTYPES)
+@pytest.mark.parametrize("smooth_edge_size", SWEEP_SMOOTH)
+@pytest.mark.parametrize("min_island_size", SWEEP_ISLAND)
+@pytest.mark.parametrize("absent", [[0], [0, 99], [99], [-1]])
+def test_absent_class_values_are_inert(
+    dtype, smooth_edge_size, min_island_size, absent
+):
+    # Naming classes that do not occur in the array must never raise and must
+    # never change the result, at any point in the parameter grid. This is the
+    # property tiled processing relies on: one fixed class list reused across
+    # tiles whose contents vary.
+    arr = _sweep_array(dtype)
+    kwargs = dict(
+        smooth_edge_size=smooth_edge_size,
+        min_island_size=min_island_size,
+        connectivity=4,
+        max_workers=2,
+    )
+
+    baseline = clean_array(arr, class_values=[1, 2], **kwargs)
+    padded = clean_array(arr, class_values=[1, 2] + absent, **kwargs)
+
+    assert padded.dtype == baseline.dtype
+    assert np.array_equal(padded, baseline)
+
+
+@pytest.mark.parametrize("dtype", SWEEP_DTYPES)
+@pytest.mark.parametrize("smooth_edge_size", SWEEP_SMOOTH)
+def test_only_absent_class_values_is_identity(dtype, smooth_edge_size):
+    # If every requested class is absent there is nothing to clean, so the
+    # array must come back untouched rather than raising or being blanked.
+    arr = _sweep_array(dtype)
+    out = clean_array(
+        arr,
+        class_values=[99, 100],
+        smooth_edge_size=smooth_edge_size,
+        min_island_size=1000,
+        connectivity=4,
+        max_workers=2,
+    )
+    assert out.dtype == arr.dtype
+    assert np.array_equal(out, arr)
+
+
+@pytest.mark.parametrize("dtype", SWEEP_DTYPES)
+@pytest.mark.parametrize("smooth_edge_size", SWEEP_SMOOTH)
+@pytest.mark.parametrize("min_island_size", SWEEP_ISLAND)
+@pytest.mark.parametrize("class_values", [None, 1, [1], [1, 2], [], [0], [1, 99], [99]])
+def test_output_invariants_hold_across_grid(
+    dtype, smooth_edge_size, min_island_size, class_values
+):
+    # Structural guarantees that hold for every accepted input shape: no
+    # exception, shape and dtype preserved, and no class value invented that
+    # was not already in the input.
+    arr = _sweep_array(dtype)
+    out = clean_array(
+        arr,
+        class_values=class_values,
+        smooth_edge_size=smooth_edge_size,
+        min_island_size=min_island_size,
+        connectivity=4,
+        max_workers=2,
+    )
+
+    assert out.shape == arr.shape
+    assert out.dtype == arr.dtype
+    assert set(np.unique(out).tolist()) <= set(np.unique(arr).tolist())
+
+
 def test_empty_class_values_means_identity():
     # If class_values is an empty list, treat everything as background (no-op)
     rng = np.random.default_rng(1)
