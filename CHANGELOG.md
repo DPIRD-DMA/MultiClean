@@ -4,6 +4,25 @@ All notable changes to MultiClean are documented here.
 
 ## [Unreleased]
 
+### Changed
+- Switched the OpenCV runtime dependency from `opencv-python` to
+  `opencv-python-headless`. MultiClean only uses `morphologyEx`,
+  `connectedComponentsWithStats` and `distanceTransformWithLabels` — no GUI
+  or video I/O — so the GUI build was pulling in shared libraries that are
+  absent from slim container and CI images, where plain `opencv-python`
+  fails at import with `libGL.so.1: cannot open shared object file`.
+  Both distributions provide the same `cv2` module, so if your environment
+  needs the full `opencv-python` build for other work, install it
+  explicitly; do not rely on both being present at once.
+- Raised the OpenCV floor to `>=4.10`. `opencv-python` builds before
+  4.10.0.84 are compiled against NumPy 1.x and fail at import when paired
+  with NumPy 2.x, which the previous `>=4.0` floor allowed a resolver to do.
+
+### Added
+- Declared `numpy>=1.21` as an explicit runtime dependency. It was always
+  imported directly and appears in the public type signatures, but was only
+  installed transitively via OpenCV.
+
 ## [0.3.1] - 2026-07-21
 
 ### Fixed
