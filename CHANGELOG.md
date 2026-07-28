@@ -4,6 +4,8 @@ All notable changes to MultiClean are documented here.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-28
+
 ### Changed
 - Switched the OpenCV runtime dependency from `opencv-python` to
   `opencv-python-headless`. MultiClean only uses `morphologyEx`,
@@ -86,7 +88,8 @@ All notable changes to MultiClean are documented here.
 - Documentation: README, two example notebooks (land use, cloud
   shadow), and a Google Colab tutorial notebook.
 
-[Unreleased]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.1.0...v0.2.0
