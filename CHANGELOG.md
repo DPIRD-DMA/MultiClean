@@ -19,6 +19,13 @@ All notable changes to MultiClean are documented here.
   have cached results produced with an even `smooth_edge_size`, regenerate
   them or expect a one-pixel offset against new output.
 
+- The source distribution no longer ships the example notebooks, their sample
+  rasters, or the README artwork. `setuptools-scm` hands the sdist every
+  git-tracked file, so these were swept in automatically — 4.9 MB of a 7.2 MB
+  tarball, none of it read by anything in the package. A `MANIFEST.in` now
+  prunes them, taking the sdist to 3.9 MB. The notebooks remain on GitHub,
+  where the README links them. Wheels were never affected and are unchanged.
+
 ## [0.4.0] - 2026-07-28
 
 ### Changed

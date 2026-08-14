@@ -1,0 +1,21 @@
+# setuptools-scm hands the sdist every git-tracked file, which swept in the
+# example notebooks and the sample rasters they read — 4.9 MB of a 7.2 MB
+# tarball, for content nobody installing the package needs. They stay on
+# GitHub, where the README's tutorial badge links them. The wheel was never
+# affected; it is built from `packages` alone.
+prune notebooks
+
+# README artwork and the notebook that regenerates it. The README loads these
+# over raw.githubusercontent.com rather than from the package, so nothing in
+# the sdist reads them.
+prune assets
+
+# Editor config, of no use to anyone unpacking the sdist.
+prune .vscode
+
+# Deliberately kept: tests/ so the sdist can be verified after unpacking, and
+# the CI workflows, RELEASING.md and CHANGELOG.md so a packager can see how the
+# release is built and what changed. Together they are ~48 KB, excepting the
+# 4.9 MB of fixture rasters under tests/data. Note that nothing downstream runs
+# the suite today — the conda-forge recipe only import-checks — so if sdist size
+# becomes a problem again, tests/data is the thing left to reconsider.
