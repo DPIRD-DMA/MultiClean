@@ -73,6 +73,9 @@ def clean_array(
 
     background_class_values = list(set(all_class_values) - set(target_class_values))
 
+    # Annotated because the None branches below are otherwise incompatible with
+    # the concrete ndarray type numpy>=2.5's stubs infer for np.isnan.
+    nan_mask: Optional[np.ndarray]
     if is_float and not fill_nan:
         nan_mask = np.isnan(array)
         if not nan_mask.any():
