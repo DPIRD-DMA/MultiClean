@@ -3,18 +3,35 @@ name: CI
 on:
   push:
   pull_request:
+  schedule:
+    # Sundays 00:00 UTC. No lockfile is committed, so uv resolves fresh each
+    # run and this catches upstream releases that break us before users hit them.
+    - cron: "0 0 * * 0"
+  workflow_dispatch:
 
 jobs:
   check:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The full range `requires-python = ">=3.9"` claims. Resolving fresh on
+        # each means the older entries also pin older numpy/OpenCV, which is
+        # where the interesting differences turn up — 3.12+ picks up numpy 2.5,
+        # whose stricter stubs the older versions never exercise.
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # full history so setuptools-scm can read tags
 
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
 
       - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          cache-suffix: ${{ matrix.python-version }}
 
       - run: uv sync --all-extras --dev
 
