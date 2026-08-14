@@ -93,12 +93,39 @@ def smooth_edges_to_codes(
     kernel = create_circle_kernel(smooth_edge_size)
     codes = np.zeros(array.shape, dtype=code_dtype)
 
+    # A true opening dilates with the *reflected* structuring element. cv2's
+    # ``morphologyEx(MORPH_OPEN)`` reuses one anchor for both passes, which is
+    # self-correcting only when the anchor sits on the element's centre of
+    # symmetry -- true for odd ``smooth_edge_size``, false for even, where it
+    # translated the result down and right by one pixel (and so was not even
+    # anti-extensive). Anchoring the erosion at cv2's default and the dilation
+    # at its reflection removes the shift; for odd sizes the two anchors
+    # coincide and output is bit-identical to the previous implementation.
+    erode_anchor = smooth_edge_size // 2
+    dilate_anchor = smooth_edge_size - 1 - erode_anchor
+    kernel_reflected = np.ascontiguousarray(kernel[::-1, ::-1])
+
     def _opened_for_class(cv_) -> Tuple[object, np.ndarray]:
         # bool storage is 1 byte/element so ``.view(np.uint8)`` is a zero-
         # copy reinterpretation -- avoids the bool→uint8 astype copy.
         class_mask_u8 = (array == cv_).view(np.uint8)
-        opened_u8 = cv2.morphologyEx(
-            class_mask_u8, cv2.MORPH_OPEN, kernel, iterations=1
+        eroded_u8 = cv2.erode(
+            class_mask_u8,
+            kernel,
+            anchor=(erode_anchor, erode_anchor),
+            iterations=1,
+        )
+        # Dilate back into the erosion's buffer, which is what
+        # ``morphologyEx(MORPH_OPEN)`` does internally. Allocating a second
+        # full-size buffer instead costs more than the morphology itself at
+        # small kernel sizes. ``eroded_u8`` is local to this call, so this
+        # stays safe under the thread pool below.
+        opened_u8 = cv2.dilate(
+            eroded_u8,
+            kernel_reflected,
+            dst=eroded_u8,
+            anchor=(dilate_anchor, dilate_anchor),
+            iterations=1,
         )
         return cv_, opened_u8.view(bool)
 

@@ -4,6 +4,21 @@ All notable changes to MultiClean are documented here.
 
 ## [Unreleased]
 
+### Fixed
+- Edge smoothing no longer translates the output by one pixel down and to the
+  right when `smooth_edge_size` is even. `cv2.morphologyEx(MORPH_OPEN)` applies
+  a single anchor to both the erosion and the dilation, which is only correct
+  when that anchor coincides with the structuring element's centre of symmetry
+  — true for odd kernel sizes, false for even ones. The result was a shifted
+  opening that could also add pixels to a class rather than only removing them.
+  The erosion and dilation are now run separately with the dilation anchored at
+  the reflection of the erosion's anchor, giving a true opening at every size.
+
+  **This changes output for even `smooth_edge_size`, including the default of
+  `2`.** Output for odd values is bit-identical to previous releases. If you
+  have cached results produced with an even `smooth_edge_size`, regenerate
+  them or expect a one-pixel offset against new output.
+
 ## [0.4.0] - 2026-07-28
 
 ### Changed
