@@ -4,6 +4,8 @@ All notable changes to MultiClean are documented here.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-14
+
 ### Fixed
 - Edge smoothing no longer translates the output by one pixel down and to the
   right when `smooth_edge_size` is even. `cv2.morphologyEx(MORPH_OPEN)` applies
@@ -110,7 +112,8 @@ All notable changes to MultiClean are documented here.
 - Documentation: README, two example notebooks (land use, cloud
   shadow), and a Google Colab tutorial notebook.
 
-[Unreleased]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.2.0...v0.3.0
