@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from multiclean import clean_array
+from multiclean.utils import create_circle_kernel, smooth_edges_to_codes
 
 TEST_DATA_DIR = Path(__file__).resolve().parent / "data"
 LANDSAT_INPUT = TEST_DATA_DIR / "Landsat cloud and cloud shadow.tif"
@@ -100,6 +101,239 @@ def test_smoothing_removes_single_pixel_when_enabled():
     assert out[2, 2] == 0
 
 
+def _centred_blob(size: int = 24, half_width: int = 6) -> np.ndarray:
+    """Solid square of class 1 centred in a background-0 array.
+
+    The array is symmetric under a 180-degree rotation, which the smoothing
+    kernels are too, so any correct opening must preserve that symmetry.
+    """
+    arr = np.zeros((size, size), dtype=np.uint8)
+    centre = (size - 1) / 2
+    lo, hi = int(centre - half_width + 1), int(centre + half_width + 1)
+    arr[lo:hi, lo:hi] = 1
+    return arr
+
+
+@pytest.mark.parametrize("smooth_edge_size", [1, 2, 3, 4, 5, 6, 7, 8])
+def test_smoothing_does_not_translate_blobs(smooth_edge_size):
+    # Regression: cv2's MORPH_OPEN applies one anchor to both the erosion and
+    # the dilation, which is only correct when the structuring element's centre
+    # of symmetry lands on that anchor. For even kernel sizes it does not, and
+    # the whole blob came back shifted one pixel down and right -- most obvious
+    # at smooth_edge_size=2, where the opening should otherwise be a no-op on a
+    # solid blob.
+    arr = _centred_blob()
+    out = clean_array(
+        arr,
+        class_values=[0, 1],
+        smooth_edge_size=smooth_edge_size,
+        min_island_size=0,
+        connectivity=4,
+        max_workers=1,
+    )
+
+    # The blob is far larger than any kernel here, so it must survive with its
+    # bounding box unmoved (a circular opening rounds the corners off a square
+    # but leaves the edge midpoints, so the extent is unchanged).
+    ys, xs = np.where(out == 1)
+    in_ys, in_xs = np.where(arr == 1)
+    assert (ys.min(), ys.max()) == (in_ys.min(), in_ys.max())
+    assert (xs.min(), xs.max()) == (in_xs.min(), in_xs.max())
+
+
+@pytest.mark.parametrize("smooth_edge_size", [1, 2, 3, 4, 5, 6, 7, 8])
+def test_smoothing_preserves_symmetry(smooth_edge_size):
+    # Sharper form of the same regression: the kernels are all symmetric under
+    # a 180-degree rotation, so a symmetric input must smooth to a symmetric
+    # result. A one-pixel translation in either axis breaks this even when the
+    # bounding box survives.
+    #
+    # Asserted against the smoothing stage rather than clean_array because the
+    # nearest-neighbour fill that follows it breaks ties between equidistant
+    # source pixels arbitrarily, which is asymmetric by design.
+    arr = _centred_blob()
+    codes, _ = smooth_edges_to_codes(
+        arr,
+        smooth_edge_size=smooth_edge_size,
+        target_class_values=[1],
+        background_class_values=[0],
+        all_class_values=[0, 1],
+        max_workers=1,
+    )
+    assert np.array_equal(codes, codes[::-1, ::-1])
+
+
+@pytest.mark.parametrize("smooth_edge_size", [1, 2, 3, 4, 5, 6, 7, 8])
+def test_smoothing_never_grows_a_class(smooth_edge_size):
+    # An opening is anti-extensive: it can only remove pixels from a class,
+    # never add them. The even-size anchor bug broke this -- the shifted blob
+    # covered pixels that were background in the input. Checked against a
+    # ragged multiclass array so it is not just the solid-blob case.
+    arr = np.zeros((40, 40), dtype=np.uint8)
+    arr[5:20, 5:20] = 1
+    arr[22:36, 22:36] = 1
+    arr[10:14, 24:30] = 2
+    arr[30, 3] = 1  # thin spur that smoothing is expected to erase
+
+    out = clean_array(
+        arr,
+        class_values=[1, 2],
+        smooth_edge_size=smooth_edge_size,
+        min_island_size=0,
+        connectivity=4,
+        max_workers=1,
+    )
+
+    # Every pixel that came out as a smoothed class must have held that class
+    # on input; fill may reassign a pixel to another class, but smoothing must
+    # not extend one beyond its original footprint.
+    for cv in (1, 2):
+        grew = (out == cv) & (arr != cv)
+        # Fill can only draw from surviving neighbours, so any growth here is
+        # the smoothing step inventing coverage.
+        assert not grew.any(), f"class {cv} grew by {int(grew.sum())} pixels"
+
+
+def _reference_opening(mask: np.ndarray, kernel: np.ndarray, anchor: int) -> np.ndarray:
+    """Morphological opening straight from the definition, for small arrays.
+
+    ``A opened by B`` is the union of every translate of ``B`` that fits
+    entirely inside ``A``. Written out as an explicit slide so it shares no
+    machinery with the cv2 erode/dilate pair under test.
+
+    Two details model cv2's finite-image behaviour, so this is exact at the
+    borders and not just in the interior:
+
+    * Pixels outside the image read as foreground, matching the border value
+      cv2 uses for erosion -- content is not eaten away merely because the
+      image ends.
+    * Translate positions are restricted to the image domain, because that is
+      the domain cv2's intermediate erosion is defined on.
+
+    The second point is why ``anchor`` has to be named: it fixes where a
+    translate sits relative to the position that must stay in-domain. Away
+    from the border the choice cannot matter (a translated structuring element
+    is still the same set of pixels), and the interior test below asserts
+    exactly that. Within one kernel width of the border it does matter, so the
+    border test passes cv2's own anchor.
+    """
+    ks = kernel.shape[0]
+    height, width = mask.shape
+    offsets = [(i - anchor, j - anchor) for i, j in np.argwhere(kernel > 0)]
+
+    # Foreground-padded view, wide enough that no translate can run off it.
+    extended = np.ones((height + 2 * ks, width + 2 * ks), dtype=np.uint8)
+    extended[ks : ks + height, ks : ks + width] = mask
+
+    out = np.zeros_like(mask)
+    for row in range(height):
+        for col in range(width):
+            if all(extended[row + ks + dr, col + ks + dc] for dr, dc in offsets):
+                for dr, dc in offsets:
+                    r, c = row + dr, col + dc
+                    if 0 <= r < height and 0 <= c < width:
+                        out[r, c] = 1
+    return out
+
+
+def _smoothed_mask(arr: np.ndarray, smooth_edge_size: int) -> np.ndarray:
+    """Run the smoothing stage alone and return class 1's mask."""
+    codes, code_to_value = smooth_edges_to_codes(
+        arr,
+        smooth_edge_size=smooth_edge_size,
+        target_class_values=[1],
+        background_class_values=[],
+        all_class_values=[0, 1],
+        max_workers=1,
+    )
+    return (code_to_value[codes] == 1).astype(np.uint8)
+
+
+@pytest.mark.parametrize("smooth_edge_size", [1, 2, 3, 4, 5, 6, 7, 8])
+def test_smoothing_matches_reference_opening(smooth_edge_size):
+    # The other smoothing tests assert properties (no shift, symmetric,
+    # anti-extensive). Properties alone cannot distinguish a correct opening
+    # from a differently-wrong one -- silently rounding even kernel sizes up to
+    # odd, for instance, satisfies every one of them while changing how much
+    # smoothing the caller actually asked for. This pins the exact result
+    # against an independent implementation of the definition instead.
+    rng = np.random.default_rng(7)
+    kernel = create_circle_kernel(smooth_edge_size)
+
+    for _ in range(10):
+        arr = np.zeros((34, 34), dtype=np.uint8)
+        arr[9:25, 9:25] = rng.random((16, 16)) > 0.35  # wide zero margin
+
+        expected = _reference_opening(arr, kernel, anchor=smooth_edge_size // 2)
+        assert np.array_equal(_smoothed_mask(arr, smooth_edge_size), expected)
+
+        # Away from the border the reference must not depend on how the
+        # structuring element is anchored. This is the no-shift property
+        # restated at the definition level, and it keeps the assertion above
+        # from silently inheriting the implementation's anchor convention.
+        for alt_anchor in (0, smooth_edge_size - 1):
+            assert np.array_equal(
+                _reference_opening(arr, kernel, anchor=alt_anchor), expected
+            )
+
+
+@pytest.mark.parametrize("smooth_edge_size", [1, 2, 3, 4, 5, 6, 7, 8])
+def test_smoothing_matches_reference_opening_at_borders(smooth_edge_size):
+    # Same equivalence, but with content running flush to all four edges, where
+    # cv2's border convention decides the answer. Untested until now: the
+    # interior test deliberately keeps a margin so border handling cannot
+    # affect it, which left the edges of every real raster unpinned.
+    rng = np.random.default_rng(11)
+    kernel = create_circle_kernel(smooth_edge_size)
+
+    for _ in range(6):
+        arr = (rng.random((20, 20)) > 0.35).astype(np.uint8)
+        expected = _reference_opening(arr, kernel, anchor=smooth_edge_size // 2)
+        assert np.array_equal(_smoothed_mask(arr, smooth_edge_size), expected)
+
+
+@pytest.mark.parametrize("smooth_edge_size", [1, 2, 3, 4, 5, 6, 7, 8])
+def test_smoothing_does_not_erode_content_at_the_image_edge(smooth_edge_size):
+    # The human-readable half of the border contract: a band running the full
+    # width of the image, flush against the top, left and right edges, must
+    # come through an opening completely intact. If the erosion treated
+    # out-of-image pixels as background it would chew a kernel-wide bite out of
+    # all three edges, which on tiled processing would show up as seams along
+    # every tile boundary.
+    #
+    # A band rather than a square block: its only boundary is the straight
+    # edge along the bottom, which an opening preserves exactly. A block would
+    # additionally have an interior corner, and a circular kernel rounds those
+    # off by design -- correct behaviour that has nothing to do with borders.
+    arr = np.zeros((24, 24), dtype=np.uint8)
+    arr[:12, :] = 1
+
+    assert np.array_equal(_smoothed_mask(arr, smooth_edge_size), arr)
+
+
+@pytest.mark.parametrize("smooth_edge_size", [0, 2, 3])
+def test_output_is_independent_of_max_workers(smooth_edge_size):
+    # Smoothing runs one class per thread and the opening now dilates back into
+    # the erosion's own buffer. That is safe because the buffer is created per
+    # call, but hoisting it out to avoid a per-class allocation would be an easy
+    # and plausible "optimisation" -- and would corrupt results only under
+    # concurrency, which every other test pins to a single worker count.
+    rng = np.random.default_rng(3)
+    arr = rng.integers(0, 6, size=(64, 64), dtype=np.uint8)
+    arr[10:30, 10:30] = 2  # solid regions so smoothing has real work to do
+    arr[35:60, 35:60] = 4
+
+    kwargs = dict(
+        class_values=[1, 2, 3, 4, 5],
+        smooth_edge_size=smooth_edge_size,
+        min_island_size=6,
+        connectivity=4,
+    )
+    baseline = clean_array(arr, max_workers=1, **kwargs)
+    for workers in (2, 4, 8):
+        assert np.array_equal(clean_array(arr, max_workers=workers, **kwargs), baseline)
+
+
 def test_island_threshold_strictness_preserves_area_equal_to_threshold():
     # 2-pixel island (area = 2) should be preserved when min_island_size = 2
     arr = np.zeros((5, 5), dtype=np.int32)
@@ -183,7 +417,7 @@ def test_class_values_absent_from_array_are_ignored():
     arr = np.full((64, 64), 254, dtype=np.uint8)
     arr[10:50, 10:50] = 1  # only class 1 (and background 254) present
 
-    for smooth_edge_size in (0, 3):
+    for smooth_edge_size in (0, 2, 3):
         kwargs = dict(
             smooth_edge_size=smooth_edge_size,
             min_island_size=10,
@@ -206,7 +440,10 @@ def test_class_values_absent_from_array_are_ignored():
 # any single branch still fails the suite.
 
 SWEEP_DTYPES = [np.uint8, np.int16, np.int32, np.float32]
-SWEEP_SMOOTH = [0, 1, 3]
+# Even kernel sizes are included deliberately: the anchor bug that translated
+# smoothed blobs by one pixel only ever fired for even ``smooth_edge_size``,
+# and the sweep's previous [0, 1, 3] never touched that half of the space.
+SWEEP_SMOOTH = [0, 1, 2, 3, 4]
 SWEEP_ISLAND = [0, 25]
 
 
