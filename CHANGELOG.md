@@ -4,6 +4,8 @@ All notable changes to MultiClean are documented here.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-14
+
 ### Fixed
 - Edge smoothing no longer translates the output by one pixel down and to the
   right when `smooth_edge_size` is even. `cv2.morphologyEx(MORPH_OPEN)` applies
@@ -18,6 +20,13 @@ All notable changes to MultiClean are documented here.
   `2`.** Output for odd values is bit-identical to previous releases. If you
   have cached results produced with an even `smooth_edge_size`, regenerate
   them or expect a one-pixel offset against new output.
+
+- The source distribution no longer ships the example notebooks, their sample
+  rasters, or the README artwork. `setuptools-scm` hands the sdist every
+  git-tracked file, so these were swept in automatically — 4.9 MB of a 7.2 MB
+  tarball, none of it read by anything in the package. A `MANIFEST.in` now
+  prunes them, taking the sdist to 3.9 MB. The notebooks remain on GitHub,
+  where the README links them. Wheels were never affected and are unchanged.
 
 ## [0.4.0] - 2026-07-28
 
@@ -103,7 +112,8 @@ All notable changes to MultiClean are documented here.
 - Documentation: README, two example notebooks (land use, cloud
   shadow), and a Google Colab tutorial notebook.
 
-[Unreleased]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/DPIRD-DMA/MultiClean/compare/v0.2.0...v0.3.0
